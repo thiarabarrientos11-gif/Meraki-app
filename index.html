@@ -683,7 +683,12 @@ async function subirFoto(file, itemId){
                 "Content-Type": file.type },
     body: file
   });
-  if(!r.ok) throw new Error("No se pudo subir la foto");
+  if(!r.ok){
+    const errText = await r.text();
+    console.error("Error foto:", r.status, errText);
+    alert("Error " + r.status + ": " + errText);
+    throw new Error("No se pudo subir la foto");
+  }
   return `${SUPABASE_URL}/storage/v1/object/public/fotos-joyas/${path}`;
 }
 

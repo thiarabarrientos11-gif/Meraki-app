@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>MERAKI · Inventario</title>
+
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#0A0A0A" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="icon" href="icons/icon-192.png" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --negro:#0A0A0A; --surface:#131313; --surface2:#1A1A1A;
+    --borde:#2C2C2C; --borde2:#383838;
+    --oro:#D4AF37; --oro-dk:#AA8A2A;
+    --perla:#F0EAD6; --perla-dim:#8E8A82;
+    --rojo:#C44B4B; --rojo-lt:#E07070;
+    --verde:#4B8C5A; --verde-lt:#72C484;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; padding:0; background:var(--negro); color:var(--perla);
+    font-family:'Inter',sans-serif; height:100%; overflow:hidden; }
+  #app{ height:100vh; display:flex; flex-direction:column; }
+
+  .brand{ font-family:'Cormorant Garamond',serif; letter-spacing:.12em; }
+
+  /* ---------- HEADER ---------- */
+  header{ padding: calc(14px + var(--safe-top)) 18px 12px; background:var(--surface);
+    border-bottom:1px solid var(--borde); flex-shrink:0; }
+  .htop{ display:flex; align-items:center; justify-content:space-between; }
+  .htop h1{ font-size:22px; font-weight:600; color:var(--oro); margin:0; }
+  .htop .gem{ width:14px; height:14px; margin-right:8px; display:inline-block;
+    background:var(--oro); clip-path: polygon(20% 0%, 80% 0%, 100% 38%, 50% 100%, 0% 38%); }
+  .sub{ font-size:10.5px; letter-spacing:.14em; color:var(--perla-dim); margin-top:2px; text-transform:uppercase; }
+
+  .stats{ display:flex; gap:10px; overflow-x:auto; margin-top:14px; padding-bottom:2px; }
+  .stat{ flex:1 0 auto; min-width:84px; background:var(--surface2); border:1px solid var(--borde);
+    border-radius:10px; padding:8px 12px; text-align:center; }
+  .stat b{ display:block; font-size:17px; color:var(--oro); font-weight:700; }
+  .stat span{ font-size:9px; color:var(--perla-dim); letter-spacing:.08em; text-transform:uppercase; }
+
+  /* ---------- TOOLBAR ---------- */
+  .toolbar{ padding:12px 16px; background:var(--negro); flex-shrink:0; border-bottom:1px solid var(--borde); }
+  .search{ display:flex; align-items:center; background:var(--surface2); border:1px solid var(--borde2);
+    border-radius:10px; padding:0 12px; height:42px; }
+  .search input{ flex:1; background:none; border:none; outline:none; color:var(--perla);
+    font-family:'Inter'; font-size:14.5px; margin-left:8px; }
+  .search input::placeholder{ color:var(--perla-dim); }
+  .filters{ display:flex; gap:8px; margin-top:10px; overflow-x:auto; }
+  .filters select{ background:var(--surface2); color:var(--perla); border:1px solid var(--borde2);
+    border-radius:8px; padding:7px 8px; font-size:12.5px; font-family:'Inter'; flex-shrink:0; }
+
+  /* ---------- LIST ---------- */
+  main{ flex:1; overflow-y:auto; padding:12px 16px calc(90px + var(--safe-bottom)); }
+  .count{ font-size:11.5px; color:var(--perla-dim); margin:4px 2px 10px; }
+  .card{ background:var(--surface); border:1px solid var(--borde); border-radius:12px;
+    padding:14px; margin-bottom:10px; display:flex; gap:12px; align-items:center; }
+  .card .info{ flex:1; min-width:0; }
+  .card .row1{ display:flex; justify-content:space-between; gap:8px; }
+  .card .nombre{ font-size:15px; font-weight:600; color:var(--perla);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .card .precio{ font-size:14px; font-weight:700; color:var(--oro); flex-shrink:0; }
+  .card .meta{ font-size:11.5px; color:var(--perla-dim); margin-top:4px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .badge{ display:inline-block; padding:2px 8px; border-radius:20px; font-size:10.5px;
+    font-weight:600; margin-top:6px; }
+  .badge.ok{ background:rgba(75,140,90,.18); color:var(--verde-lt); }
+  .badge.low{ background:rgba(232,176,96,.16); color:#E8B060; }
+  .badge.zero{ background:rgba(255,255,255,.06); color:#777; }
+  .empty{ text-align:center; color:var(--perla-dim); padding:60px 20px; font-size:13.5px; }
+
+  /* ---------- FAB ---------- */
+  .fab{ position:fixed; right:18px; bottom:calc(86px + var(--safe-bottom)); width:54px; height:54px;
+    background:var(--oro); color:var(--negro); border:none; font-size:26px; font-weight:700;
+    clip-path: polygon(20% 0%, 80% 0%, 100% 35%, 50% 100%, 0% 35%);
+    display:flex; align-items:center; justify-content:center; padding-bottom:8px;
+    box-shadow:0 6px 18px rgba(212,175,55,.35); z-index:20; }
+
+  /* ---------- BOTTOM NAV ---------- */
+  nav{ position:fixed; left:0; right:0; bottom:0; background:var(--surface);
+    border-top:1px solid var(--borde); display:flex; padding-bottom:var(--safe-bottom); z-index:15; }
+  nav button{ flex:1; background:none; border:none; padding:11px 0 9px; color:var(--perla-dim);
+    font-family:'Inter'; font-size:11px; display:flex; flex-direction:column; align-items:center; gap:3px; }
+  nav button .ic{ width:18px; height:18px; opacity:.6; }
+  nav button.active{ color:var(--oro); }
+  nav button.active .ic{ opacity:1; }
+
+  /* ---------- SHEET (modal) ---------- */
+  .overlay{ position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:30; display:none; }
+  .overlay.show{ display:block; }
+  .sheet{ position:fixed; left:0; right:0; bottom:0; max-height:88vh; background:var(--surface);
+    border-radius:18px 18px 0 0; border-top:1px solid var(--borde2); z-index:31;
+    transform:translateY(100%); transition:transform .25s ease; display:flex; flex-direction:column; }
+  .sheet.show{ transform:translateY(0); }
+  .sheet .handle{ width:38px; height:4px; background:var(--borde2); border-radius:4px; margin:10px auto 4px; }
+  .sheet header{ background:none; border:none; padding:6px 20px 12px; display:flex; justify-content:space-between; align-items:center; }
+  .sheet header h2{ font-size:18px; color:var(--oro); margin:0; font-family:'Cormorant Garamond',serif; font-weight:600; }
+  .sheet header .x{ color:var(--perla-dim); font-size:22px; background:none; border:none; padding:4px; }
+  .sheet form{ overflow-y:auto; padding:0 20px 24px; }
+  .field{ margin-bottom:14px; }
+  .field label{ display:block; font-size:10.5px; letter-spacing:.08em; color:var(--perla-dim);
+    text-transform:uppercase; margin-bottom:5px; }
+  .field input, .field select, .field textarea{ width:100%; background:var(--surface2); color:var(--perla);
+    border:1px solid var(--borde2); border-radius:9px; padding:11px 12px; font-size:14.5px; font-family:'Inter'; }
+  .field textarea{ resize:vertical; min-height:60px; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .stockbox{ display:flex; align-items:center; justify-content:space-between; background:var(--surface2);
+    border:1px solid var(--borde2); border-radius:9px; padding:10px 12px; margin-bottom:14px; }
+  .stockbox .lbl{ font-size:12px; color:var(--perla-dim); }
+  .stepper{ display:flex; align-items:center; gap:10px; }
+  .stepper button{ width:32px; height:32px; border-radius:8px; border:1px solid var(--borde2);
+    background:var(--surface); color:var(--oro); font-size:18px; font-weight:700; }
+  .stepper input{ width:52px; text-align:center; background:none; border:none; color:var(--perla);
+    font-size:17px; font-weight:700; }
+  .btnrow{ display:flex; gap:10px; margin-top:6px; }
+  .btn{ flex:1; padding:13px; border-radius:10px; border:none; font-family:'Inter'; font-weight:600;
+    font-size:14px; text-align:center; }
+  .btn.primary{ background:var(--oro); color:var(--negro); }
+  .btn.secondary{ background:transparent; border:1px solid var(--borde2); color:var(--perla-dim); }
+  .btn.danger{ background:rgba(196,75,75,.12); border:1px solid #5A2020; color:var(--rojo-lt); }
+  .msg{ font-size:12.5px; margin-top:8px; min-height:16px; }
+  .msg.err{ color:var(--rojo-lt); } .msg.ok{ color:var(--verde-lt); }
+
+  /* toast */
+  #toast{ position:fixed; top:calc(14px + var(--safe-top)); left:50%; transform:translateX(-50%) translateY(-30px);
+    background:var(--surface2); border:1px solid var(--borde2); color:var(--perla); padding:10px 18px;
+    border-radius:10px; font-size:13px; z-index:50; opacity:0; transition:all .25s ease; pointer-events:none; }
+  #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* install banner */
+  #installBar{ position:fixed; left:14px; right:14px; bottom:calc(78px + var(--safe-bottom)); z-index:25;
+    background:var(--surface2); border:1px solid var(--oro-dk); border-radius:12px; padding:11px 14px;
+    display:none; align-items:center; justify-content:space-between; gap:10px; }
+  #installBar.show{ display:flex; }
+  #installBar span{ font-size:12.5px; color:var(--perla); }
+  #installBar button{ background:var(--oro); color:var(--negro); border:none; border-radius:8px;
+    padding:7px 12px; font-size:12px; font-weight:700; flex-shrink:0; }
+
+  .spinner{ text-align:center; padding:40px; color:var(--perla-dim); font-size:13px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="htop">
+      <h1><span class="gem"></span><span class="brand">MERAKI</span></h1>
+    </div>
+    <div class="sub">Alta joyería · Inventario en la nube</div>
+    <div class="stats">
+      <div class="stat"><b id="stPiezas">0</b><span>Piezas</span></div>
+      <div class="stat"><b id="stValor">₲0</b><span>Valor</span></div>
+      <div class="stat"><b id="stCats">0</b><span>Categorías</span></div>
+      <div class="stat"><b id="stBajo">0</b><span>Stock bajo</span></div>
+    </div>
+  </header>
+
+  <div class="toolbar" id="viewInventario">
+    <div class="search">
+      <span style="color:var(--perla-dim)">⌕</span>
+      <input id="busqueda" placeholder="Buscar por nombre, SKU, material, gema..." />
+    </div>
+    <div class="filters">
+      <select id="fCat"><option value="Todas">Categoría: Todas</option></select>
+      <select id="fLocal"><option value="Todos">Local: Todos</option></select>
+      <select id="fStock">
+        <option value="">Stock: Todo</option>
+        <option value="bajo">Stock bajo</option>
+        <option value="cero">Sin stock</option>
+        <option value="ok">Stock normal</option>
+      </select>
+    </div>
+  </div>
+
+  <main id="mainInventario">
+    <div class="count" id="count"></div>
+    <div id="list"><div class="spinner">Cargando inventario…</div></div>
+  </main>
+
+  <main id="mainMovimientos" style="display:none;">
+    <div class="count">Historial de movimientos recientes</div>
+    <div id="listMov"><div class="spinner">Cargando movimientos…</div></div>
+  </main>
+
+  <button class="fab" id="btnAdd">+</button>
+
+  <div id="installBar">
+    <span>Instalá MERAKI como app en tu celular</span>
+    <button id="btnInstall">Instalar</button>
+  </div>
+
+  <nav>
+    <button class="active" data-view="inventario">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+      Inventario
+    </button>
+    <button data-view="movimientos">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>
+      Movimientos
+    </button>
+  </nav>
+
+</div>
+
+<div id="overlay" class="overlay"></div>
+
+<!-- SHEET: Agregar / Editar pieza -->
+<div id="sheetItem" class="sheet">
+  <div class="handle"></div>
+  <header>
+    <h2 id="sheetItemTitle">Nueva Joya</h2>
+    <button class="x" id="closeItemSheet">✕</button>
+  </header>
+  <form id="formItem" onsubmit="return false;">
+    <div class="field"><label>Nombre de la pieza *</label><input id="f_nombre" required /></div>
+    <div class="grid2">
+      <div class="field"><label>SKU / Código</label><input id="f_sku" /></div>
+      <div class="field"><label>Categoría</label><select id="f_categoria"></select></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Material</label><input id="f_material" /></div>
+      <div class="field"><label>Piedra / Gema</label><input id="f_piedra" /></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Costo</label><input id="f_costo" type="number" step="0.01" /></div>
+      <div class="field"><label>Precio Venta *</label><input id="f_precio" type="number" step="0.01" required /></div>
+    </div>
+    <div class="field"><label>Local</label><select id="f_local"></select></div>
+
+    <div class="stockbox">
+      <div>
+        <div class="lbl">Stock</div>
+      </div>
+      <div class="stepper">
+        <button type="button" id="stockMenos">–</button>
+        <input id="f_stock" type="number" value="0" />
+        <button type="button" id="stockMas">+</button>
+      </div>
+    </div>
+
+    <div class="field"><label>Stock mínimo (alerta)</label><input id="f_stockmin" type="number" value="2" /></div>
+    <div class="field"><label>Proveedor</label><input id="f_proveedor" /></div>
+    <div class="field"><label>Notas</label><textarea id="f_notas"></textarea></div>
+
+    <div class="msg" id="itemMsg"></div>
+    <div class="btnrow">
+      <button class="btn danger" id="btnDeleteItem" style="display:none;">Eliminar</button>
+      <button class="btn primary" id="btnSaveItem">Guardar</button>
+    </div>
+  </form>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════
+   CONFIG SUPABASE (mismo proyecto que la app de escritorio)
+   ══════════════════════════════════════════════════════════ */
+const SUPABASE_URL = "https://kfdjctoquoxrfvfeljic.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtmZGpjdG9xdW94cmZ2ZmVsamljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MTAzNjMsImV4cCI6MjA5NzM4NjM2M30.B6OeYJxIc9YjtWYRlzGlWvxMEzp2MdbFEUIyX-IAhkE";
+const HEADERS = {
+  "apikey": SUPABASE_KEY,
+  "Authorization": "Bearer " + SUPABASE_KEY,
+  "Content-Type": "application/json",
+  "Prefer": "return=representation"
+};
+const LOCALES = ["Joseph", "Paraguay Alta Moda", "Lara Mikal", "Stock Local"];
+const LOCAL_DEFAULT = "Stock Local";
+
+async function sbGet(table, params){
+  const url = new URL(`${SUPABASE_URL}/rest/v1/${table}`);
+  if(params) Object.entries(params).forEach(([k,v]) => url.searchParams.set(k,v));
+  const r = await fetch(url, { headers: HEADERS });
+  if(!r.ok) return [];
+  return r.json();
+}
+async function sbPost(table, data){
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, { method:"POST", headers: HEADERS, body: JSON.stringify(data) });
+  if(!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+async function sbPatch(table, filtro, data){
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filtro}`, { method:"PATCH", headers: HEADERS, body: JSON.stringify(data) });
+  if(!r.ok) throw new Error(await r.text());
+  return r.ok;
+}
+async function sbDelete(table, filtro){
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filtro}`, { method:"DELETE", headers: HEADERS });
+  return r.ok;
+}
+
+/* ---------- estado ---------- */
+let inv = [];        // datos crudos de inventario
+let categorias = [];
+let editId = null;    // si no es null, el sheet está en modo edición
+
+function fmtPrecio(v){
+  if(v === null || v === undefined || v === "") return "—";
+  const n = Number(v);
+  if(isNaN(n)) return "—";
+  return "₲ " + Math.round(n).toLocaleString("es-PY").replace(/,/g,".");
+}
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 2200);
+}
+
+/* ---------- carga ---------- */
+async function cargarTodo(){
+  try{
+    const [invRows, catRows] = await Promise.all([
+      sbGet("inventario", {order:"nombre"}),
+      sbGet("categorias", {order:"nombre"})
+    ]);
+    inv = Array.isArray(invRows) ? invRows : [];
+    categorias = Array.isArray(catRows) ? catRows.map(c=>c.nombre) : [];
+    fillSelects();
+    render();
+  }catch(e){
+    document.getElementById("list").innerHTML = `<div class="empty">No se pudo conectar.<br>Verificá tu internet.</div>`;
+  }
+}
+
+function fillSelects(){
+  const fCat = document.getElementById("fCat");
+  fCat.innerHTML = `<option value="Todas">Categoría: Todas</option>` +
+    categorias.map(c=>`<option value="${c}">${c}</option>`).join("");
+
+  const fLocal = document.getElementById("fLocal");
+  fLocal.innerHTML = `<option value="Todos">Local: Todos</option>` +
+    LOCALES.map(l=>`<option value="${l}">${l}</option>`).join("");
+
+  const fc = document.getElementById("f_categoria");
+  fc.innerHTML = `<option value="">—</option>` + categorias.map(c=>`<option value="${c}">${c}</option>`).join("");
+
+  const fl = document.getElementById("f_local");
+  fl.innerHTML = LOCALES.map(l=>`<option value="${l}">${l}</option>`).join("");
+}
+
+/* ---------- filtrado + render ---------- */
+function filtrar(){
+  const b = document.getElementById("busqueda").value.trim().toLowerCase();
+  const cat = document.getElementById("fCat").value;
+  const local = document.getElementById("fLocal").value;
+  const stockf = document.getElementById("fStock").value;
+
+  return inv.filter(r=>{
+    if(b){
+      const hay = [r.nombre, r.sku, r.material, r.piedra, r.locales||LOCAL_DEFAULT]
+        .some(v => (v||"").toLowerCase().includes(b));
+      if(!hay) return false;
+    }
+    if(cat !== "Todas" && r.categoria !== cat) return false;
+    if(local !== "Todos" && (r.locales||LOCAL_DEFAULT) !== local) return false;
+    const st = r.stock||0, sm = r.stock_min||2;
+    if(stockf === "bajo" && !(st>0 && st<=sm)) return false;
+    if(stockf === "cero" && st !== 0) return false;
+    if(stockf === "ok" && !(st>sm)) return false;
+    return true;
+  });
+}
+
+function render(){
+  const rows = filtrar();
+  document.getElementById("count").textContent = `${rows.length} pieza${rows.length!==1?"s":""}`;
+
+  // stats sobre TODO el inventario (no solo filtrado), igual que la app de escritorio
+  const totalPiezas = inv.reduce((a,r)=>a+(r.stock||0),0);
+  const valor = inv.reduce((a,r)=>a+((r.precio_venta||0)*(r.stock||0)),0);
+  const cats = new Set(inv.map(r=>r.categoria).filter(Boolean)).size;
+  const bajo = inv.filter(r=> (r.stock||0)>0 && (r.stock||0)<=(r.stock_min||2)).length;
+  document.getElementById("stPiezas").textContent = totalPiezas.toLocaleString("es-PY");
+  document.getElementById("stValor").textContent = fmtPrecio(valor);
+  document.getElementById("stCats").textContent = cats;
+  document.getElementById("stBajo").textContent = bajo;
+
+  const list = document.getElementById("list");
+  if(rows.length === 0){
+    list.innerHTML = `<div class="empty">Sin resultados.<br>Probá otra búsqueda o filtro.</div>`;
+    return;
+  }
+  list.innerHTML = rows.map(r=>{
+    const st = r.stock||0, sm = r.stock_min||2;
+    let badge = `<span class="badge ok">Stock ${st}</span>`;
+    if(st===0) badge = `<span class="badge zero">Sin stock</span>`;
+    else if(st<=sm) badge = `<span class="badge low">Stock bajo · ${st}</span>`;
+    return `<div class="card" data-id="${r.id}">
+      <div class="info">
+        <div class="row1">
+          <div class="nombre">${r.nombre||"—"}</div>
+          <div class="precio">${fmtPrecio(r.precio_venta)}</div>
+        </div>
+        <div class="meta">${r.sku||"—"} · ${r.categoria||"—"} · ${r.locales||LOCAL_DEFAULT}</div>
+        ${badge}
+      </div>
+    </div>`;
+  }).join("");
+
+  list.querySelectorAll(".card").forEach(card=>{
+    card.addEventListener("click", ()=> openEdit(Number(card.dataset.id)));
+  });
+}
+
+/* ---------- movimientos ---------- */
+async function cargarMovimientos(){
+  const el = document.getElementById("listMov");
+  el.innerHTML = `<div class="spinner">Cargando…</div>`;
+  try{
+    const rows = await sbGet("movimientos", {
+      order:"fecha.desc", limit:80,
+      select:"id,fecha,tipo,cantidad,stock_antes,stock_despues,motivo,inventario(nombre,sku)"
+    });
+    if(!Array.isArray(rows) || rows.length===0){
+      el.innerHTML = `<div class="empty">Sin movimientos registrados.</div>`;
+      return;
+    }
+    el.innerHTML = rows.map(r=>{
+      const inv_ = r.inventario || {};
+      const signo = r.tipo === "entrada" ? "+" : "−";
+      const color = r.tipo === "entrada" ? "var(--verde-lt)" : "var(--rojo-lt)";
+      const fecha = new Date(r.fecha).toLocaleString("es-PY", {day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"});
+      return `<div class="card" style="cursor:default;">
+        <div class="info">
+          <div class="row1">
+            <div class="nombre">${inv_.nombre||"—"}</div>
+            <div class="precio" style="color:${color}">${signo}${r.cantidad}</div>
+          </div>
+          <div class="meta">${fecha} · ${inv_.sku||"—"}</div>
+          <div class="meta">${r.motivo||"—"} · ${r.stock_antes}→${r.stock_despues}</div>
+        </div>
+      </div>`;
+    }).join("");
+  }catch(e){
+    el.innerHTML = `<div class="empty">No se pudo cargar el historial.</div>`;
+  }
+}
+
+/* ---------- sheet agregar/editar ---------- */
+const overlay = document.getElementById("overlay");
+const sheetItem = document.getElementById("sheetItem");
+
+function showSheet(){ overlay.classList.add("show"); sheetItem.classList.add("show"); }
+function hideSheet(){ overlay.classList.remove("show"); sheetItem.classList.remove("show"); }
+
+function clearForm(){
+  ["f_nombre","f_sku","f_material","f_piedra","f_costo","f_proveedor","f_notas"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("f_categoria").value = "";
+  document.getElementById("f_local").value = LOCAL_DEFAULT;
+  document.getElementById("f_precio").value = "";
+  document.getElementById("f_stock").value = 0;
+  document.getElementById("f_stockmin").value = 2;
+  document.getElementById("itemMsg").textContent = "";
+}
+
+function openAdd(){
+  editId = null;
+  clearForm();
+  document.getElementById("sheetItemTitle").textContent = "Nueva Joya";
+  document.getElementById("btnDeleteItem").style.display = "none";
+  showSheet();
+}
+
+function openEdit(id){
+  const r = inv.find(x=>x.id===id);
+  if(!r) return;
+  editId = id;
+  document.getElementById("sheetItemTitle").textContent = "Editar Pieza";
+  document.getElementById("f_nombre").value = r.nombre||"";
+  document.getElementById("f_sku").value = r.sku||"";
+  document.getElementById("f_categoria").value = r.categoria||"";
+  document.getElementById("f_material").value = r.material||"";
+  document.getElementById("f_piedra").value = r.piedra||"";
+  document.getElementById("f_costo").value = r.precio_costo||"";
+  document.getElementById("f_precio").value = r.precio_venta||"";
+  document.getElementById("f_local").value = r.locales||LOCAL_DEFAULT;
+  document.getElementById("f_stock").value = r.stock||0;
+  document.getElementById("f_stockmin").value = r.stock_min||2;
+  document.getElementById("f_proveedor").value = r.proveedor||"";
+  document.getElementById("f_notas").value = r.notas||"";
+  document.getElementById("itemMsg").textContent = "";
+  document.getElementById("btnDeleteItem").style.display = "block";
+  showSheet();
+}
+
+document.getElementById("btnAdd").addEventListener("click", openAdd);
+document.getElementById("closeItemSheet").addEventListener("click", hideSheet);
+overlay.addEventListener("click", hideSheet);
+
+document.getElementById("stockMas").addEventListener("click", ()=>{
+  const f = document.getElementById("f_stock"); f.value = (parseInt(f.value||0)+1);
+});
+document.getElementById("stockMenos").addEventListener("click", ()=>{
+  const f = document.getElementById("f_stock"); f.value = Math.max(0, parseInt(f.value||0)-1);
+});
+
+document.getElementById("btnSaveItem").addEventListener("click", async ()=>{
+  const msg = document.getElementById("itemMsg");
+  const nombre = document.getElementById("f_nombre").value.trim();
+  const precio = parseFloat(document.getElementById("f_precio").value);
+  const stock = parseInt(document.getElementById("f_stock").value || 0);
+
+  if(!nombre || isNaN(precio)){
+    msg.textContent = "⚠ Completá nombre y precio de venta."; msg.className="msg err"; return;
+  }
+
+  const payload = {
+    nombre, sku: document.getElementById("f_sku").value.trim() || null,
+    categoria: document.getElementById("f_categoria").value || null,
+    material: document.getElementById("f_material").value.trim() || null,
+    piedra: document.getElementById("f_piedra").value.trim() || null,
+    precio_costo: document.getElementById("f_costo").value ? parseFloat(document.getElementById("f_costo").value) : null,
+    precio_venta: precio,
+    stock,
+    stock_min: parseInt(document.getElementById("f_stockmin").value || 2),
+    proveedor: document.getElementById("f_proveedor").value.trim() || null,
+    notas: document.getElementById("f_notas").value.trim() || null,
+    locales: document.getElementById("f_local").value || LOCAL_DEFAULT,
+    moneda: "PYG"
+  };
+
+  try{
+    if(editId){
+      const original = inv.find(x=>x.id===editId);
+      const stockAntes = original ? (original.stock||0) : stock;
+      await sbPatch("inventario", `id=eq.${editId}`, payload);
+      if(stockAntes !== stock){
+        await sbPost("movimientos", {
+          item_id: editId, tipo: stock>stockAntes ? "entrada":"salida",
+          cantidad: Math.abs(stock-stockAntes), stock_antes: stockAntes, stock_despues: stock,
+          motivo: "Ajuste manual (App móvil)", referencia: "", fecha: new Date().toISOString()
+        });
+      }
+      toast("Pieza actualizada ✓");
+    } else {
+      const created = await sbPost("inventario", payload);
+      const newId = Array.isArray(created) ? created[0].id : null;
+      if(newId && stock>0){
+        await sbPost("movimientos", {
+          item_id: newId, tipo: "entrada", cantidad: stock,
+          stock_antes: 0, stock_despues: stock,
+          motivo: "Ingreso inicial (App móvil)", referencia: "", fecha: new Date().toISOString()
+        });
+      }
+      toast("Pieza agregada ✓");
+    }
+    hideSheet();
+    await cargarTodo();
+  }catch(e){
+    msg.textContent = "⚠ No se pudo guardar. Revisá tu conexión."; msg.className="msg err";
+  }
+});
+
+document.getElementById("btnDeleteItem").addEventListener("click", async ()=>{
+  if(!editId) return;
+  if(!confirm("¿Eliminar esta pieza? Esta acción no se puede deshacer.")) return;
+  try{
+    await sbDelete("movimientos", `item_id=eq.${editId}`);
+    await sbDelete("inventario", `id=eq.${editId}`);
+    toast("Pieza eliminada");
+    hideSheet();
+    await cargarTodo();
+  }catch(e){
+    document.getElementById("itemMsg").textContent = "⚠ No se pudo eliminar.";
+  }
+});
+
+/* ---------- filtros listeners ---------- */
+["busqueda"].forEach(id=> document.getElementById(id).addEventListener("input", render));
+["fCat","fLocal","fStock"].forEach(id=> document.getElementById(id).addEventListener("change", render));
+
+/* ---------- navegación inferior ---------- */
+document.querySelectorAll("nav button").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    const v = btn.dataset.view;
+    document.getElementById("viewInventario").style.display = v==="inventario" ? "block":"none";
+    document.getElementById("mainInventario").style.display = v==="inventario" ? "block":"none";
+    document.getElementById("mainMovimientos").style.display = v==="movimientos" ? "block":"none";
+    document.getElementById("btnAdd").style.display = v==="inventario" ? "flex":"none";
+    if(v==="movimientos") cargarMovimientos();
+  });
+});
+
+/* ---------- instalación PWA ---------- */
+let deferredPrompt;
+window.addEventListener("beforeinstallprompt", (e)=>{
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById("installBar").classList.add("show");
+});
+document.getElementById("btnInstall").addEventListener("click", async ()=>{
+  document.getElementById("installBar").classList.remove("show");
+  if(deferredPrompt) await deferredPrompt.prompt();
+});
+
+/* ---------- service worker ---------- */
+if("serviceWorker" in navigator){
+  window.addEventListener("load", ()=> navigator.serviceWorker.register("service-worker.js"));
+}
+
+/* ---------- init ---------- */
+cargarTodo();
+setInterval(cargarTodo, 60000); // refresca cada 60s
+</script>
+</body>
+</html>

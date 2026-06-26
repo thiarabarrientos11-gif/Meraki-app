@@ -721,8 +721,14 @@ document.getElementById("btnSaveItem").addEventListener("click", async ()=>{
       // subir foto nueva si hay
       if(window._fotoFile){
         document.getElementById("fotoMsg").textContent = "Subiendo foto…";
-        fotoUrl = await subirFoto(window._fotoFile, editId);
-        document.getElementById("fotoMsg").textContent = "";
+        try{
+          fotoUrl = await subirFoto(window._fotoFile, editId);
+          document.getElementById("fotoMsg").textContent = "";
+        }catch(fe){
+          console.warn("Foto no subida:", fe);
+          document.getElementById("fotoMsg").textContent = "⚠ La foto no se pudo subir, pero los datos se guardarán igual.";
+          document.getElementById("fotoMsg").className = "msg err";
+        }
       }
       if(fotoUrl !== undefined) payload.foto_url = fotoUrl;
       await sbPatch("inventario", `id=eq.${editId}`, payload);
